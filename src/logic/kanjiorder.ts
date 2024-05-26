@@ -139,7 +139,7 @@ function getTargetSubgraph(allRoot: KanjiNode, nodeList: KanjiNode[], targetKanj
   }
   const relevantRootNode = relevantWalker(allRoot);
 
-  // Step 2a: clean up the graph
+  // Step 2a: clean up the big graph
   for (const node of nodeList) {
     node.isRelevant = false;
   }
@@ -222,3 +222,5 @@ export default function getKanjiOrder(kanjis: string, known: string = ""): [Kanj
   return [relevantList, relevantRoot];
 
 }
+
+// Note: for the order string, we should do an approach where we compare the priority of our children to the priority of our brothers. The one with lowest priority should be chosen
