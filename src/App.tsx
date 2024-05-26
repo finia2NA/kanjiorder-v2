@@ -1,19 +1,60 @@
 import { useRef } from 'react'
 import './App.css'
-import getKanjiOrder from './logic/kanjiorder';
-import { GraphCanvas } from 'reagraph';
+import getKanjiOrder, { KanjiNode } from './logic/kanjiorder';
+import { GraphCanvas, GraphCanvasRef, useSelection } from 'reagraph';
 
+export interface DisplayNode {
+  id: string;
+  label: string;
+  dataNode: KanjiNode;
+}
+
+export interface DisplayEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
 
 function App() {
-  const inputRef = useRef<HTMLInputElement>(null)
+  // Data generation...
+  const [kanjiNodeList, kanjiRoot] = getKanjiOrder("女怒相違偉");
+
+  const [nodes, edges]: [DisplayNode[], DisplayEdge[]] = [[], []]
+  for (const node of kanjiNodeList) {
+
+    // Node
+    const currentDisplayNode: DisplayNode = {
+      id: "n-" + node.name,
+      label: node.name,
+      dataNode: node
+    }
+    nodes.push(currentDisplayNode);
+
+    // Edges
+    for (const child of node.children) {
+      const currentEdge: DisplayEdge = {
+        id: node.name + "->" + child.name,
+        source: "n-" + node.name,
+        target: "n-" + child.name,
+        // label: "Edge " + node.name + "-" + child.name
+      };
+      edges.push(currentEdge);
+    }
+  }
 
 
-  const getRequirements = (kanjis: string) => {
-    // console.log(kanjis)
-    getKanjiOrder("漢字");
-  };
 
-  getRequirements("漢字");
+  // Display...
+  const graphRef = useRef<GraphCanvasRef>(null);
+  const { selections, actives, onNodeClick, onCanvasClick, onNodePointerOver, onNodePointerOut } = useSelection({
+    ref: graphRef,
+    nodes: nodes,
+    edges: edges,
+    pathHoverType: 'in',
+    pathSelectionType: 'in',
+    type: 'multi',
+  });
 
 
 
@@ -25,24 +66,18 @@ function App() {
     //   <button onClick={() => getRequirements(inputRef.current?.value || '')}>Get Requirements</button>
     // </>
     <GraphCanvas
-      nodes={[
-        {
-          id: 'n-1',
-          label: '1'
-        },
-        {
-          id: 'n-2',
-          label: '2'
-        }
-      ]}
-      edges={[
-        {
-          id: '1->2',
-          source: 'n-1',
-          target: 'n-2',
-          label: 'Edge 1-2'
-        }
-      ]}
+      ref={graphRef}
+      labelFontUrl="https://ey2pz3.csb.app/NotoSansSC-Regular.ttf"
+      layoutType="treeTd2d" // Note: our data is not a tree, but a DAG. But the layout seems to still work
+      // layoutType="hierarchicalTd" // Alternative layout
+      nodes={nodes}
+      edges={edges}
+      selections={selections}
+      actives={actives}
+      onNodePointerOver={onNodePointerOver}
+      onNodePointerOut={onNodePointerOut}
+      onCanvasClick={onCanvasClick}
+      onNodeClick={onNodeClick}
     />
   )
 }

@@ -1,3 +1,4 @@
+import { DisplayNode } from '../App';
 import topology from '../assets/topology.json';
 
 //---------------------------------------------------------------------
@@ -18,6 +19,9 @@ export interface KanjiNode {
   isRelevant: boolean;
   isKnown: boolean;
   priority: number | undefined; // lower is more important
+
+  // For display
+  displayNode?: DisplayNode;
 }
 
 class Node implements KanjiNode {
@@ -41,6 +45,22 @@ class Node implements KanjiNode {
   addParent(node: Node): void {
     this.parents.push(node);
   }
+
+  // equals(other: Node): boolean {
+  //   if (this === other) return true;
+  //   if (other == null || this.constructor !== other.constructor) return false;
+
+  //   return (
+  //     this.name === other.name &&
+  //     this.isRelevant === other.isRelevant &&
+  //     this.isKnown === other.isKnown &&
+  //     this.priority === other.priority &&
+  //     this.children.length === other.children.length &&
+  //     this.parents.length === other.parents.length &&
+  //     this.children.every((child, idx) => child.equals(other.children[idx])) &&
+  //     this.parents.every((parent, idx) => parent.equals(other.parents[idx]))
+  //   );
+  // }
 }
 
 //---------------------------------------------------------------------
@@ -67,13 +87,12 @@ function buildDAG(): [Node[], Node] {
   const keys = Object.keys(topology);
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i]
-    const current = findOrCreateNode(key, allnodes);
-    current.priority = i; // assign priority when we are reaching the node *in the list*
-    for (const connection of (topology as Topology)[key]) {
-      debugger;
-      const node = findOrCreateNode(connection, allnodes);
-      current.addChild(node);
-      node.addParent(current);
+    const currentNode = findOrCreateNode(key, allnodes);
+    currentNode.priority = i; // assign priority when we are reaching the node *in the list*
+    for (const parent of (topology as Topology)[key]) {
+      const parentNode = findOrCreateNode(parent, allnodes);
+      currentNode.addParent(parentNode);
+      parentNode.addChild(currentNode);
     }
   }
   return [allnodes, root]
@@ -88,17 +107,16 @@ function buildDAG(): [Node[], Node] {
  * @param allRoot the root node of the whole kanji graph
  * @param nodeList the list of all kanji nodes
  * @param targetKanji the list of kanji to learn
- * @returns The root node of the new subgraph
+ * @returns
  */
-function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[], knownKanji: string[]): Node {
-  // This function essentially starts at the target kanji and then goes up the DAG, 
-  // painting all parents as required
+function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[], knownKanji: string[]): [Node[], Node] {
+  // Step 1: go throught the allRoot graph and mark everything relevant
   const paint = (node: Node | undefined) => {
     // In this case, either the node does not exist or this subgraph has already been painted
     if (!node || node.isRelevant) return;
     // recursion 🙏
     node.isRelevant = true;
-    for (const parent of node.children) {
+    for (const parent of node.parents) {
       paint(parent);
     }
   }
@@ -108,7 +126,7 @@ function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[
     paint(startNode);
   }
 
-  // create a new graph with only the relevant nodes
+  // Step 2: create a new graph with only the relevant nodes
   const relevantWalker = (node: Node): Node => {
     // copy the node properties
     const currentNewNode = new Node(node.name);
@@ -125,31 +143,45 @@ function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[
       }
     }
 
-
-    // At this point, we have our subgraph. Now, do some adjustments.
-    // first, we mark the nodes we know
-    markKnown(currentNewNode, knownKanji);
-
-    // secondly, sort the children and parent arrays by priority
-    // This way, a left-to right dfs will give a natural order to learn the kanji where
-    // the most important ones are first
-    const prioWalker = (node: Node) => {
-      node.children.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-      node.parents.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-      for (const child of node.children) {
-        prioWalker(child);
-      }
-    }
-    prioWalker(currentNewNode);
-
-    return currentNewNode;
+    return currentNewNode
   }
 
-  // create the new graph
-  const newRoot = relevantWalker(allRoot);
+  const relevantRootNode = relevantWalker(allRoot);
 
-  return newRoot;
+
+  // At this point, we have our subgraph. Now, do some adjustments.
+  // first, we mark the nodes we know
+  markKnown(relevantRootNode, knownKanji);
+
+  // secondly, sort the children and parent arrays by priority
+  // This way, a left-to right dfs will give a natural order to learn the kanji where
+  // the most important ones are first
+  const prioWalker = (node: Node) => {
+    node.children.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    node.parents.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    for (const child of node.children) {
+      prioWalker(child);
+    }
+  }
+  prioWalker(relevantRootNode);
+
+  // Generate list
+  const visited: Set<string> = new Set();
+  const relevantList: Node[] = [];
+  const listWalker = (node: Node) => {
+    if (visited.has(node.name)) return;
+
+    visited.add(node.name);
+    relevantList.push(node);
+    for (const child of node.children) {
+      listWalker(child);
+    }
+  }
+  listWalker(relevantRootNode);
+
+  return [relevantList, relevantRootNode];
 }
+
 
 function markKnown(rootNode: Node, knownList: string[]) {
 
@@ -177,7 +209,7 @@ function markKnown(rootNode: Node, knownList: string[]) {
 // //---------------------------------------------------------------------
 // // MAIN FUNCTION
 
-export default function getKanjiOrder(kanjis: string, known: string = ""): void {
+export default function getKanjiOrder(kanjis: string, known: string = ""): [Node[], KanjiNode] {
   //   // TODO: find the ones that actually are kanji from the input string (Add resilience)
 
   // Split our inputs strings into lists
@@ -188,9 +220,8 @@ export default function getKanjiOrder(kanjis: string, known: string = ""): void 
   const [allList, allRoot] = buildDAG();
 
   // Then, get the relevant subgraph
-  debugger;
-  const newRoot = getTargetSubgraph(allRoot, allList, targetList, knownList);
+  const [relevantList, relevantRoot] = getTargetSubgraph(allRoot, allList, targetList, knownList);
 
-  console.log(newRoot);
+  return [relevantList, relevantRoot];
 
 }
