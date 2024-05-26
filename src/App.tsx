@@ -10,11 +10,10 @@ function App() {
 
   const getRequirements = (kanjis: string) => {
     // console.log(kanjis)
-
     getKanjiOrder("漢字");
-
-
   };
+
+  getRequirements("漢字");
 
 
 
