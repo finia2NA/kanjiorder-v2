@@ -1,4 +1,4 @@
-import { DisplayNode } from '../App';
+import { DisplayNode } from '../components/KanjiGraph';
 import topology from '../assets/topology.json';
 
 //---------------------------------------------------------------------
@@ -9,28 +9,20 @@ import topology from '../assets/topology.json';
 // semantically it is a DAG modified to have just one root ("0")
 type Topology = Record<string, string[]>;
 
-export interface KanjiNode {
+
+export class KanjiNode {
   // DAG properties
   name: string;
-  children: Node[];
-  parents: Node[];
+  children: KanjiNode[];
+  parents: KanjiNode[];
 
   // for kanji
-  isRelevant: boolean;
-  isKnown: boolean;
+  isRelevant: boolean = false;
+  isKnown: boolean = false;
   priority: number | undefined; // lower is more important
 
   // For display
   displayNode?: DisplayNode;
-}
-
-class Node implements KanjiNode {
-  name: string;
-  children: Node[];
-  parents: Node[];
-  isRelevant: boolean = false;
-  isKnown: boolean = false;
-  priority: number | undefined; // lower is more important
 
   constructor(name: string) {
     this.name = name;
@@ -38,11 +30,11 @@ class Node implements KanjiNode {
     this.parents = [];
   }
 
-  addChild(node: Node): void {
+  addChild(node: KanjiNode): void {
     this.children.push(node);
   }
 
-  addParent(node: Node): void {
+  addParent(node: KanjiNode): void {
     this.parents.push(node);
   }
 
@@ -66,10 +58,10 @@ class Node implements KanjiNode {
 //---------------------------------------------------------------------
 // FUNCTIONS TO CREATE THE GRAPH
 
-function findOrCreateNode(name: string, thelist: Node[]): Node {
+function findOrCreateNode(name: string, thelist: KanjiNode[]): KanjiNode {
   let node = thelist.find(x => x.name === name);
   if (!node) {
-    node = new Node(name);
+    node = new KanjiNode(name);
     thelist.push(node);
   }
   return node;
@@ -80,9 +72,9 @@ function findOrCreateNode(name: string, thelist: Node[]): Node {
  * Does not mark known kanji yet (this is done on the subgraph)
  * @returns [allnodes, root] where allnodes is a list of all nodes and root is the root node
  */
-function buildDAG(): [Node[], Node] {
-  const root = new Node("0")
-  const allnodes: Node[] = [root];
+function buildDAG(): [KanjiNode[], KanjiNode] {
+  const root = new KanjiNode("0")
+  const allnodes: KanjiNode[] = [root];
 
   const keys = Object.keys(topology);
   for (let i = 0; i < keys.length; i++) {
@@ -109,9 +101,9 @@ function buildDAG(): [Node[], Node] {
  * @param targetKanji the list of kanji to learn
  * @returns
  */
-function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[], knownKanji: string[]): [Node[], Node] {
+function getTargetSubgraph(allRoot: KanjiNode, nodeList: KanjiNode[], targetKanji: string[], knownKanji: string[]): [KanjiNode[], KanjiNode] {
   // Step 1: go throught the allRoot graph and mark everything relevant
-  const paint = (node: Node | undefined) => {
+  const paint = (node: KanjiNode | undefined) => {
     // In this case, either the node does not exist or this subgraph has already been painted
     if (!node || node.isRelevant) return;
     // recursion 🙏
@@ -127,9 +119,9 @@ function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[
   }
 
   // Step 2: create a new graph with only the relevant nodes
-  const relevantWalker = (node: Node): Node => {
+  const relevantWalker = (node: KanjiNode): KanjiNode => {
     // copy the node properties
-    const currentNewNode = new Node(node.name);
+    const currentNewNode = new KanjiNode(node.name);
     currentNewNode.isRelevant = node.isRelevant;
     currentNewNode.isKnown = node.isKnown;
     currentNewNode.priority = node.priority;
@@ -145,18 +137,22 @@ function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[
 
     return currentNewNode
   }
-
   const relevantRootNode = relevantWalker(allRoot);
+
+  // Step 2a: clean up the graph
+  for (const node of nodeList) {
+    node.isRelevant = false;
+  }
 
 
   // At this point, we have our subgraph. Now, do some adjustments.
-  // first, we mark the nodes we know
+  // Step 3: Mark the nodes we know
   markKnown(relevantRootNode, knownKanji);
 
-  // secondly, sort the children and parent arrays by priority
+  // Step 4: Sort the children and parent arrays by priority
   // This way, a left-to right dfs will give a natural order to learn the kanji where
   // the most important ones are first
-  const prioWalker = (node: Node) => {
+  const prioWalker = (node: KanjiNode) => {
     node.children.sort((a, b) => (a.priority || 0) - (b.priority || 0));
     node.parents.sort((a, b) => (a.priority || 0) - (b.priority || 0));
     for (const child of node.children) {
@@ -165,10 +161,10 @@ function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[
   }
   prioWalker(relevantRootNode);
 
-  // Generate list
+  // Step 5: Generate the list of relevant nodes
   const visited: Set<string> = new Set();
-  const relevantList: Node[] = [];
-  const listWalker = (node: Node) => {
+  const relevantList: KanjiNode[] = [];
+  const listWalker = (node: KanjiNode) => {
     if (visited.has(node.name)) return;
 
     visited.add(node.name);
@@ -179,15 +175,16 @@ function getTargetSubgraph(allRoot: Node, nodeList: Node[], targetKanji: string[
   }
   listWalker(relevantRootNode);
 
+  // Finally, return
   return [relevantList, relevantRootNode];
 }
 
 
-function markKnown(rootNode: Node, knownList: string[]) {
+function markKnown(rootNode: KanjiNode, knownList: string[]) {
 
   const visited = new Set();
 
-  const paint = (node: Node) => {
+  const paint = (node: KanjiNode) => {
     visited.add(node)
 
     const match = knownList.find(x => x === node.name);
@@ -209,17 +206,17 @@ function markKnown(rootNode: Node, knownList: string[]) {
 // //---------------------------------------------------------------------
 // // MAIN FUNCTION
 
-export default function getKanjiOrder(kanjis: string, known: string = ""): [Node[], KanjiNode] {
+// Do this only once
+const [allList, allRoot] = buildDAG();
+
+export default function getKanjiOrder(kanjis: string, known: string = ""): [KanjiNode[], KanjiNode] {
   //   // TODO: find the ones that actually are kanji from the input string (Add resilience)
 
   // Split our inputs strings into lists
   const targetList: string[] = kanjis.split('');
   const knownList: string[] = known.split('');
 
-  // First, build the DAG of ALL Kanji (big!)
-  const [allList, allRoot] = buildDAG();
-
-  // Then, get the relevant subgraph
+  // Get the relevant subgraph
   const [relevantList, relevantRoot] = getTargetSubgraph(allRoot, allList, targetList, knownList);
 
   return [relevantList, relevantRoot];

@@ -1,84 +1,67 @@
-import { useRef } from 'react'
+import { useEffect, useState } from 'react';
 import './App.css'
+import KanjiGraph from './components/KanjiGraph'
 import getKanjiOrder, { KanjiNode } from './logic/kanjiorder';
-import { GraphCanvas, GraphCanvasRef, useSelection } from 'reagraph';
 
-export interface DisplayNode {
-  id: string;
-  label: string;
-  dataNode: KanjiNode;
-}
-
-export interface DisplayEdge {
-  id: string;
-  source: string;
-  target: string;
-  label?: string;
-}
 
 function App() {
-  // Data generation...
-  const [kanjiNodeList, kanjiRoot] = getKanjiOrder("女怒相違偉");
 
-  const [nodes, edges]: [DisplayNode[], DisplayEdge[]] = [[], []]
-  for (const node of kanjiNodeList) {
 
-    // Node
-    const currentDisplayNode: DisplayNode = {
-      id: "n-" + node.name,
-      label: node.name,
-      dataNode: node
-    }
-    nodes.push(currentDisplayNode);
+  const [kanjiNodeList, setKanjiNodeList] = useState<KanjiNode[]>([]);
+  const [kanjiRoot, setKanjiRoot] = useState<KanjiNode>(new KanjiNode(''));
 
-    // Edges
-    for (const child of node.children) {
-      const currentEdge: DisplayEdge = {
-        id: node.name + "->" + child.name,
-        source: "n-" + node.name,
-        target: "n-" + child.name,
-        // label: "Edge " + node.name + "-" + child.name
-      };
-      edges.push(currentEdge);
-    }
+  const [targetKanjiString, setTargetKanjiString] = useState<string>('');
+  const [knownKanjiString, setKnownKanjiString] = useState<string>('');
+
+  useEffect(() => {
+
+    // Get the kanji order
+    const [relevantList, relevantRoot] = getKanjiOrder(targetKanjiString, knownKanjiString);
+    setKanjiNodeList(relevantList);
+    setKanjiRoot(relevantRoot);
+
+
+    // Cleanup function
+    return () => {
+      // Perform any necessary cleanup here
+    };
+  }, [targetKanjiString, knownKanjiString]);
+
+  const debugFunction = () => {
+    console.log(targetKanjiString)
+    console.log(kanjiNodeList)
+    debugger;
   }
 
 
-
-  // Display...
-  const graphRef = useRef<GraphCanvasRef>(null);
-  const { selections, actives, onNodeClick, onCanvasClick, onNodePointerOver, onNodePointerOut } = useSelection({
-    ref: graphRef,
-    nodes: nodes,
-    edges: edges,
-    pathHoverType: 'in',
-    pathSelectionType: 'in',
-    type: 'multi',
-  });
-
-
-
   return (
-    // <>
-    //   Wanted Kanji
-    //   <input ref={inputRef} />
-
-    //   <button onClick={() => getRequirements(inputRef.current?.value || '')}>Get Requirements</button>
-    // </>
-    <GraphCanvas
-      ref={graphRef}
-      labelFontUrl="https://ey2pz3.csb.app/NotoSansSC-Regular.ttf"
-      layoutType="treeTd2d" // Note: our data is not a tree, but a DAG. But the layout seems to still work
-      // layoutType="hierarchicalTd" // Alternative layout
-      nodes={nodes}
-      edges={edges}
-      selections={selections}
-      actives={actives}
-      onNodePointerOver={onNodePointerOver}
-      onNodePointerOut={onNodePointerOut}
-      onCanvasClick={onCanvasClick}
-      onNodeClick={onNodeClick}
-    />
+    <div className='flex flex-row'>
+      {/* Hardcoded style for the 2 sections because otherwise the graph will fill the whole screen */}
+      <div style={{ position: "fixed", left: 0, top: 0, width: '50%', height: '100%' }}>
+        <KanjiGraph kanjiNodeList={kanjiNodeList} kanjiRoot={kanjiRoot} />
+      </div>
+      <div style={{ position: "fixed", right: 0, top: 0, width: '50%', height: '100%' }}>
+        <div className='m-4 text-left'>
+          <h1 className='text-3xl '>Kanji Order Tool</h1>
+          <div className='mt-6'>
+            <form>
+              <div className='mb-4'>
+                <label htmlFor='targetKanji' className='block text-lg font-medium text-gray-700'>Target Kanji</label>
+                <textarea id='targetKanji'
+                  value={targetKanjiString}
+                  onChange={(e) => setTargetKanjiString(e.target.value)}
+                  className='mt-1 p-2 border border-gray-300 rounded-md' />
+              </div>
+              <div className='mb-4'>
+                <label htmlFor='knownKanji' className='block text-lg font-medium text-gray-700'>Known Kanji</label>
+                <textarea value={knownKanjiString} onChange={(e) => setKnownKanjiString(e.target.value)} id='knownKanji' className='mt-1 p-2 border border-gray-300 rounded-md' />
+              </div>
+            </form>
+            <button onClick={debugFunction}>Debug</button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
