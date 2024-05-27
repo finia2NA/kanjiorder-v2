@@ -20,7 +20,7 @@ interface KanjiGraphProps {
   kanjiRoot: KanjiNode;
 }
 
-const KanjiGraph = ({ kanjiNodeList, kanjiRoot }: KanjiGraphProps) => {
+const KanjiGraph = ({ kanjiNodeList }: KanjiGraphProps) => {
   // Data generation...
 
   const [nodes, edges]: [DisplayNode[], DisplayEdge[]] = [[], []]
