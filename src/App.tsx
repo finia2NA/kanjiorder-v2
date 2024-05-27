@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './App.css'
 import KanjiGraph from './components/KanjiGraph'
-import getKanjiOrder, { KanjiNode } from './logic/kanjiorder';
+import getKanjiOrder, { KanjiNode, getRecommendedOrder } from './logic/kanjiorder';
 
 
 function App() {
@@ -10,28 +10,30 @@ function App() {
   const [kanjiNodeList, setKanjiNodeList] = useState<KanjiNode[]>([]);
   const [kanjiRoot, setKanjiRoot] = useState<KanjiNode>(new KanjiNode(''));
 
+  const [recommendedOrder, setRecommendedOrder] = useState<string>('');
+
   const [targetKanjiString, setTargetKanjiString] = useState<string>('');
   const [knownKanjiString, setKnownKanjiString] = useState<string>('');
 
   useEffect(() => {
 
-    // Get the kanji order
+    // Get the kanji graph
     const [relevantList, relevantRoot] = getKanjiOrder(targetKanjiString, knownKanjiString);
     setKanjiNodeList(relevantList);
     setKanjiRoot(relevantRoot);
+
+    // Get order in string form
+    const orderString = getRecommendedOrder(relevantRoot).map(x => x.name).join('');
+    setRecommendedOrder(orderString);
+
+
 
 
     // Cleanup function
     return () => {
       // Perform any necessary cleanup here
     };
-  }, [targetKanjiString, knownKanjiString]);
-
-  const debugFunction = () => {
-    console.log(targetKanjiString)
-    console.log(kanjiNodeList)
-    debugger;
-  }
+  }, [targetKanjiString, knownKanjiString, setKanjiNodeList, setKanjiRoot, setRecommendedOrder]);
 
 
   return (
@@ -57,7 +59,10 @@ function App() {
                 <textarea value={knownKanjiString} onChange={(e) => setKnownKanjiString(e.target.value)} id='knownKanji' className='mt-1 p-2 border border-gray-300 rounded-md' />
               </div>
             </form>
-            <button onClick={debugFunction}>Debug</button>
+          </div>
+          <div>
+            <h2 className='text-xl mt-6'>Recommended Order</h2>
+            <p>{recommendedOrder}</p>
           </div>
         </div>
       </div>

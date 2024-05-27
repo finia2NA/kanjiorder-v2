@@ -202,6 +202,49 @@ function markKnown(rootNode: KanjiNode, knownList: string[]) {
   paint(rootNode);
 }
 
+// ---------------------------------------------------------------------
+// Order Recommendation
+
+/**
+ * Generates an order to study the kanji, where
+ * 1. Consitituating parts are always learned before the kanji that uses them
+ * 2. The most frequent kanji are learned first
+ * @param rootNode 
+ * @returns
+ */
+export function getRecommendedOrder(rootNode: KanjiNode): KanjiNode[] {
+  const currentList = [rootNode];
+  const returnList: KanjiNode[] = [];
+
+  while (currentList.length > 0) {
+    const candidate = currentList.shift();
+    if (!candidate) break; // This should never happen but the compiler wants this
+
+    // See if the candidate is already in the return list
+    // (Since it is a DFS it can be the child of multiple parents)
+    const alreadyInList = returnList.find(x => x.name === candidate?.name);
+    if (alreadyInList) continue;
+
+    // If the candidate is not in the return list, add it
+    returnList.push(candidate as KanjiNode);
+
+    // Insert the children into current if all parents are already in the list
+    for (const child of candidate.children) {
+      // If the child has all its parents in the list, we can add it
+      if (child.parents.every(x => returnList.includes(x))) {
+        currentList.push(child);
+      }
+    }
+
+    // Sort the current list by priority
+    // NOTE: would be better if we inserted at the correct position instead of pushing and sorting,
+    // but we can optimize this later
+    currentList.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+  }
+
+  return returnList;
+}
+
 
 // //---------------------------------------------------------------------
 // // MAIN FUNCTION
