@@ -1,5 +1,5 @@
-import { GraphCanvas, GraphCanvasRef, Theme, lightTheme, useSelection } from "reagraph";
-import getKanjiOrder, { KanjiNode } from "../logic/kanjiorder";
+import { GraphCanvas, GraphCanvasRef, lightTheme, useSelection } from "reagraph";
+import { KanjiNode } from "../logic/kanjiorder";
 import { useRef } from "react";
 
 export interface DisplayNode {
@@ -20,7 +20,7 @@ interface KanjiGraphProps {
   kanjiRoot: KanjiNode;
 }
 
-const KanjiGraph = ({ kanjiNodeList, kanjiRoot }: KanjiGraphProps) => {
+const KanjiGraph = ({ kanjiNodeList }: KanjiGraphProps) => {
   // Data generation...
 
   const [nodes, edges]: [DisplayNode[], DisplayEdge[]] = [[], []]
