@@ -1,5 +1,6 @@
 # Kanjiorder V2
-This is a graphical version of the kanjiorder script I made a while ago.
+This is a graphical version of the kanjiorder script I made a while ago.  
+You can easily use it without installing the content of this repo by visiting this [link](https://finia2na.github.io/kanjiorder-v2/)
 
 The Kanji list (src/assets/topology.json) is by [Dmitry Shpika](https://github.com/scriptin/topokanji), used under [CC-BY-4.0 license](https://creativecommons.org/licenses/by/4.0/).
 
