@@ -1,14 +1,21 @@
 import { DisplayNode } from '../components/KanjiGraph';
 import topology from '../assets/topology.json';
 
-//---------------------------------------------------------------------
-// DATA STRUCTURES
-
 // This is the structure of the JSON file
 // The topology is a dictionary syntactically,
-// semantically it is a DAG modified to have just one root ("0")
+// semantically it is a DAG I have modified to have just one root ("0")
 type Topology = Record<string, string[]>;
 
+// RADICALS:
+// This is from https://www.localizingjapan.com/blog/2012/01/20/regular-expressions-for-japanese-text/ .
+// Not using their regex because they match Kangxi unicode block, while I operate in CJK Unified Ideographs
+// When normalized, some of these radicals turn into Kanji. I have done my best to remove them.
+
+// This is the original
+// const radicalList = new Set("⺀⺀⺁⺂⺃⺄⺅⺆⺇⺈⺉⺊⺋⺌⺍⺎⺏⺐⺑⺒⺓⺔⺕⺖⺗⺘⺙⺚⺛⺜⺝⺞⺟⺠⺡⺢⺣⺤⺥⺦⺧⺨⺩⺪⺫⺬⺭⺮⺯⺰⺱⺲⺳⺴⺵⺶⺷⺸⺹⺺⺻⺼⺽⺾⺿⻀⻁⻂⻃⻄⻅⻆⻇⻈⻉⻊⻋⻌⻍⻎⻏⻐⻑⻒⻓⻔⻕⻖⻗⻘⻙⻚⻛⻜⻝⻞⻟⻠⻡⻢⻣⻤⻥⻦⻧⻨⻩⻪⻫⻬⻭⻮⻯⻰⻱⻲⻳⼀⼁⼂⼃⼄⼅⼆⼇⼈⼉⼊⼋⼌⼍⼎⼏⼐⼑⼒⼓⼔⼕⼖⼗⼘⼙⼚⼛⼜⼝⼞⼟⼠⼡⼢⼣⼤⼥⼦⼧⼨⼩⼪⼫⼬⼭⼮⼯⼰⼱⼲⼳⼴⼵⼶⼷⼸⼹⼺⼻⼼⼽⼾⼿⽀⽁⽂⽃⽄⽅⽆⽇⽈⽉⽊⽋⽌⽍⽎⽏⽐⽑⽒⽓⽔⽕⽖⽗⽘⽙⽚⽛⽜⽝⽞⽟⽠⽡⽢⽣⽤⽥⽦⽧⽨⽩⽪⽫⽬⽭⽮⽯⽰⽱⽲⽳⽴⽵⽶⽷⽸⽹⽺⽻⽼⽽⽾⽿⾀⾁⾂⾃⾄⾅⾆⾇⾈⾉⾊⾋⾌⾍⾎⾏⾐⾑⾒⾓⾔⾕⾖⾗⾘⾙⾚⾛⾜⾝⾞⾟⾠⾡⾢⾣⾤⾥⾦⾧⾨⾩⾪⾫⾬⾭⾮⾯⾰⾱⾲⾳⾴⾵⾶⾷⾸⾹⾺⾻⾼⾽⾾⾿⿀⿁⿂⿃⿄⿅⿆⿇⿈⿉⿊⿋⿌⿍⿎⿏⿐⿑⿒⿓⿔⿕".normalize("NFKC").split(''));
+
+// This is the one I have cleaned
+const radicalSet = new Set("⺀⺁⺂⺃⺄⺅⺆⺇⺈⺉⺊⺋⺌⺍⺎⺏⺐⺑⺒⺓⺔⺕⺖⺗⺘⺙⺚⺛⺜⺝⺞⺡⺢⺣⺤⺥⺦⺧⺨⺩⺪⺫⺬⺭⺮⺯⺰⺱⺲⺳⺴⺵⺶⺷⺸⺹⺺⺻⺼⺽⺾⺿⻀⻂⻃⻅⻇⻈⻉⻊⻋⻌⻍⻎⻏⻐⻒⻓⻔⻕⻖⻗⻙⻚⻛⻜⻝⻞⻟⻠⻡⻢⻣⻥⻦⻧⻪⻫⻬⻭⻮⻰⻱龟丨丶丿亅亠儿冂冖冫几凵勹匕匚匸卜卩厂厶夂夊宀寸小尢尸屮巛巾幺广廴廾弋弓彐彡彳戈戶攴斤无曰歹殳毋气爻爿片牙瓦疋疒癶禸禾糸缶网而耒肉自至臼舛艮艸襾豸辵釆隶隹韋韭髟鬥鬯鬲鹵麥黍黑黹黽鼎鼠齊齒龜龠".normalize("NFKC").split(''));
 
 export class KanjiNode {
   // DAG properties
@@ -17,17 +24,21 @@ export class KanjiNode {
   parents: KanjiNode[];
 
   // for kanji
+  isRadical: boolean;
+  priority: number | undefined; // lower is more important
   isRelevant: boolean = false;
   isKnown: boolean = false;
-  priority: number | undefined; // lower is more important
 
   // For display
   displayNode?: DisplayNode;
 
   constructor(name: string) {
-    this.name = name;
+    // In unicode, some kanji have multiple representations, so we normalize them to a standard one.
+    this.name = name.normalize("NFKC");
     this.children = [];
     this.parents = [];
+
+    this.isRadical = radicalSet.has(this.name);
   }
 
   addChild(node: KanjiNode): void {
@@ -38,21 +49,18 @@ export class KanjiNode {
     this.parents.push(node);
   }
 
-  // equals(other: Node): boolean {
-  //   if (this === other) return true;
-  //   if (other == null || this.constructor !== other.constructor) return false;
-
-  //   return (
-  //     this.name === other.name &&
-  //     this.isRelevant === other.isRelevant &&
-  //     this.isKnown === other.isKnown &&
-  //     this.priority === other.priority &&
-  //     this.children.length === other.children.length &&
-  //     this.parents.length === other.parents.length &&
-  //     this.children.every((child, idx) => child.equals(other.children[idx])) &&
-  //     this.parents.every((parent, idx) => parent.equals(other.parents[idx]))
-  //   );
-  // }
+  /**
+   * Returns a shallow copy of the node (no children or parents are copied, just the properties)
+   * @returns 
+   */
+  shallowCopy(): KanjiNode {
+    const newNode = new KanjiNode(this.name);
+    newNode.isRadical = this.isRadical;
+    newNode.isRelevant = this.isRelevant;
+    newNode.isKnown = this.isKnown;
+    newNode.priority = this.priority;
+    return newNode;
+  }
 }
 
 //---------------------------------------------------------------------
@@ -106,8 +114,9 @@ function getTargetSubgraph(allRoot: KanjiNode, nodeList: KanjiNode[], targetKanj
   const paint = (node: KanjiNode | undefined) => {
     // In this case, either the node does not exist or this subgraph has already been painted
     if (!node || node.isRelevant) return;
-    // recursion 🙏
+
     node.isRelevant = true;
+    // recursion 🙏
     for (const parent of node.parents) {
       paint(parent);
     }
@@ -121,10 +130,7 @@ function getTargetSubgraph(allRoot: KanjiNode, nodeList: KanjiNode[], targetKanj
   // Step 2: create a new graph with only the relevant nodes
   const relevantWalker = (node: KanjiNode): KanjiNode => {
     // copy the node properties
-    const currentNewNode = new KanjiNode(node.name);
-    currentNewNode.isRelevant = node.isRelevant;
-    currentNewNode.isKnown = node.isKnown;
-    currentNewNode.priority = node.priority;
+    const currentNewNode = node.shallowCopy();
 
     // add only the relevant parents
     for (const child of node.children) {
@@ -150,8 +156,6 @@ function getTargetSubgraph(allRoot: KanjiNode, nodeList: KanjiNode[], targetKanj
   markKnown(relevantRootNode, knownKanji);
 
   // Step 4: Sort the children and parent arrays by priority
-  // This way, a left-to right dfs will give a natural order to learn the kanji where
-  // the most important ones are first
   const prioWalker = (node: KanjiNode) => {
     node.children.sort((a, b) => (a.priority || 0) - (b.priority || 0));
     node.parents.sort((a, b) => (a.priority || 0) - (b.priority || 0));
@@ -212,13 +216,20 @@ function markKnown(rootNode: KanjiNode, knownList: string[]) {
  * @param rootNode 
  * @returns
  */
+// NOTE: if a high-priority kanji is hidden behind a low-priority radical, it suffers in this
+// Implementation. Could be improved by calculating a "value" of each node based on the
+// collective priority of all its (multi-level) children.
 export function getRecommendedOrder(rootNode: KanjiNode): KanjiNode[] {
-  const currentList = [rootNode];
+  // List of directly reachable nodes, sorted by priority, advantage given to Kanji over radicals
+  const possibleCandidates = [rootNode];
+  // The order to return
   const returnList: KanjiNode[] = [];
 
-  while (currentList.length > 0) {
-    const candidate = currentList.shift();
-    if (!candidate) break; // This should never happen but the compiler wants this
+  while (possibleCandidates.length > 0) {
+    const candidate = possibleCandidates.shift();
+
+    // This should never happen but the compiler wants this line
+    if (!candidate) throw new Error("unexpectedly didn't receive a candidate");
 
     // See if the candidate is already in the return list
     // (Since it is a DFS it can be the child of multiple parents)
@@ -228,18 +239,29 @@ export function getRecommendedOrder(rootNode: KanjiNode): KanjiNode[] {
     // If the candidate is not in the return list, add it
     returnList.push(candidate as KanjiNode);
 
-    // Insert the children into current if all parents are already in the list
+    // Insert the children into possibleCandidates if all parents are already in the list
     for (const child of candidate.children) {
-      // If the child has all its parents in the list, we can add it
       if (child.parents.every(x => returnList.includes(x))) {
-        currentList.push(child);
+        possibleCandidates.push(child);
       }
     }
 
-    // Sort the current list by priority
-    // NOTE: would be better if we inserted at the correct position instead of pushing and sorting,
-    // but we can optimize this later
-    currentList.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    // Sort the current list by if it is a radical first, then priority.
+    // This way:
+    // 1. All currently available kanji will be learned before new radicals
+    // 2. The priority will be respected
+    // NOTE: It would be better if we inserted at the correct position instead of pushing to the end
+    //  and sorting, but I can optimize this later
+    possibleCandidates.sort((a, b) => {
+      // Sort by isRadical first
+      if (a.isRadical && !b.isRadical) {
+        return 1; // a is radical, b is not radical, so a should come after b
+      } else if (!a.isRadical && b.isRadical) {
+        return -1; // a is not radical, b is radical, so a should come before b
+      }
+      // Sort by priority if isRadical is the same
+      return (a.priority || 0) - (b.priority || 0);
+    });
   }
 
   return returnList;
@@ -249,7 +271,7 @@ export function getRecommendedOrder(rootNode: KanjiNode): KanjiNode[] {
 // //---------------------------------------------------------------------
 // // MAIN FUNCTION
 
-// Do this only once
+// Build the DAG only once since it takes time
 const [allList, allRoot] = buildDAG();
 
 export default function getKanjiOrder(kanjis: string, known: string = ""): [KanjiNode[], KanjiNode] {
