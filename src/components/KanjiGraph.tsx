@@ -42,7 +42,16 @@ const KanjiGraph = ({ kanjiNodeList }: KanjiGraphProps) => {
         target: "n-" + child.name,
         // label: "Edge " + node.name + "-" + child.name
       };
-      edges.push(currentEdge);
+
+      const existingEdge = edges.find(edge =>
+        edge.id === currentEdge.id &&
+        edge.source === currentEdge.source &&
+        edge.target === currentEdge.target
+      );
+
+      if (!existingEdge) {
+        edges.push(currentEdge);
+      }
     }
   }
 
