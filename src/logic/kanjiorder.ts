@@ -66,10 +66,14 @@ export class KanjiNode {
 //---------------------------------------------------------------------
 // FUNCTIONS TO CREATE THE GRAPH
 
-function findOrCreateNode(name: string, thelist: KanjiNode[]): KanjiNode {
+function findOrCreateNode(name: string, thelist: KanjiNode[], properties?: KanjiNode): KanjiNode {
   let node = thelist.find(x => x.name === name);
   if (!node) {
-    node = new KanjiNode(name);
+    if (properties) {
+      node = properties.shallowCopy();
+    } else {
+      node = new KanjiNode(name);
+    }
     thelist.push(node);
   }
   return node;
@@ -99,6 +103,7 @@ function buildDAG(): [KanjiNode[], KanjiNode] {
 }
 
 // New subgraph functions
+
 /**
  * This function takes the whole kanji topography as graph and node list and returns a subgraph of kanjis to know.
  * The subgraph is a DAG with the same structure as the original, but with only the relevant nodes.
@@ -128,14 +133,15 @@ function getTargetSubgraph(allRoot: KanjiNode, nodeList: KanjiNode[], targetKanj
   }
 
   // Step 2: create a new graph with only the relevant nodes
-  const relevantWalker = (node: KanjiNode): KanjiNode => {
+  const relevantWalker = (startNode: KanjiNode, foundList: KanjiNode[]): KanjiNode => {
     // copy the node properties
-    const currentNewNode = node.shallowCopy();
+    // debugger;
+    const currentNewNode = findOrCreateNode(startNode.name, foundList, startNode);
 
     // add only the relevant parents
-    for (const child of node.children) {
+    for (const child of startNode.children) {
       if (child.isRelevant) {
-        const relevantChildrenRoot = relevantWalker(child);
+        const relevantChildrenRoot = relevantWalker(child, foundList);
         currentNewNode.addChild(relevantChildrenRoot);
         relevantChildrenRoot.addParent(currentNewNode);
       }
@@ -143,7 +149,8 @@ function getTargetSubgraph(allRoot: KanjiNode, nodeList: KanjiNode[], targetKanj
 
     return currentNewNode
   }
-  const relevantRootNode = relevantWalker(allRoot);
+  const relevantKanji: KanjiNode[] = [];
+  const relevantRootNode = relevantWalker(allRoot, relevantKanji);
 
   // Step 2a: clean up the big graph
   for (const node of nodeList) {
@@ -209,6 +216,23 @@ function markKnown(rootNode: KanjiNode, knownList: string[]) {
 // ---------------------------------------------------------------------
 // Order Recommendation
 
+// This function could be used to check if all parents of a node are in the list, but
+// it is not used since I instead check on insert time.
+// function isReachable(target: KanjiNode, included: KanjiNode[]): boolean {
+//   // Special case: if the target is a root, it is always reachable
+//   if (target.parents.length === 0) {
+//     return true;
+//   }
+
+//   // Node is reachable if all parents are included
+//   for (const parent of target.parents) {
+//     if (!included.includes(parent)) {
+//       return false;
+//     }
+//   }
+//   return true;
+// }
+
 /**
  * Generates an order to study the kanji, where
  * 1. Consitituating parts are always learned before the kanji that uses them
@@ -227,7 +251,6 @@ export function getRecommendedOrder(rootNode: KanjiNode): KanjiNode[] {
 
   while (possibleCandidates.length > 0) {
     const candidate = possibleCandidates.shift();
-
     // This should never happen but the compiler wants this line
     if (!candidate) throw new Error("unexpectedly didn't receive a candidate");
 
@@ -263,7 +286,6 @@ export function getRecommendedOrder(rootNode: KanjiNode): KanjiNode[] {
       return (a.priority || 0) - (b.priority || 0);
     });
   }
-
   return returnList;
 }
 

@@ -23,11 +23,8 @@ function App() {
     setKanjiRoot(relevantRoot);
 
     // Get order in string form
-    const orderString = getRecommendedOrder(relevantRoot).map(x => x.name).join('');
+    const orderString = getRecommendedOrder(relevantRoot).map(x => x.name).filter(x => !knownKanjiString.includes(x)).join('');
     setRecommendedOrder(orderString);
-
-
-
 
     // Cleanup function
     return () => {
