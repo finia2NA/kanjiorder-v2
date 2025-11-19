@@ -15,6 +15,38 @@ function App() {
   const [targetKanjiString, setTargetKanjiString] = useState<string>('');
   const [knownKanjiString, setKnownKanjiString] = useState<string>('');
 
+  // Load state from URL parameters on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const targetParam = params.get('target');
+    const knownParam = params.get('known');
+
+    if (targetParam) {
+      setTargetKanjiString(targetParam);
+    }
+    if (knownParam) {
+      setKnownKanjiString(knownParam);
+    }
+  }, []); // Empty dependency array = run only on mount
+
+  // Update URL when state changes
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (targetKanjiString) {
+      params.set('target', targetKanjiString);
+    }
+    if (knownKanjiString) {
+      params.set('known', knownKanjiString);
+    }
+
+    const newUrl = params.toString()
+      ? `${window.location.pathname}?${params.toString()}`
+      : window.location.pathname;
+
+    // Use replaceState to avoid creating browser history entries for each keystroke
+    window.history.replaceState({}, '', newUrl);
+  }, [targetKanjiString, knownKanjiString]);
+
   useEffect(() => {
 
     // Get the kanji graph
